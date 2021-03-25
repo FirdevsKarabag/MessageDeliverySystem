@@ -14,9 +14,14 @@ var count = 0
 var clientsMap map[int]net.Conn
 
 func sendMessage(c net.Conn, message string) {
-	c.Write([]byte(string(message)))
+	c.Write([]byte(string("RLAY" + message)))
 }
 
+//Incoming Message Formats
+//IDME : returns unique client id
+//LIST : returns all connected client ids
+//RLAY : relay message to specific clients list
+//STOP : end connection
 func handleConnection(c net.Conn) {
 	clientId := count
 	fmt.Print(".")
@@ -24,72 +29,142 @@ func handleConnection(c net.Conn) {
 		netData, err := bufio.NewReader(c).ReadString('\n')
 		if err != nil {
 			fmt.Println(err)
+			delete(clientsMap, clientId)
+			c.Close()
 			return
 		}
 
-		//messageType := strings.TrimSpace(string(netData))
-		messageFields := strings.Split(string(netData), "|")
-		messageType := messageFields[0]
-		fmt.Println("MESSGAE TYPE:" + messageType)
-		if messageType == "STOP" {
-			delete(clientsMap, clientId)
-			break
-		}
+		var index int = 0
+		var responseMessage string
 
-		responseMessage := "RESPONSE|"
-		if messageType == "ID" {
-			responseMessage += "ID " + strconv.Itoa(clientId)
-			//c.Write([]byte(string(message)))
-		}
-		if messageType == "LIST" {
-			var idList = ""
-			for id := range clientsMap {
-				if id == clientId {
-					continue
-				}
-				idList += strconv.Itoa(id) + "|"
-			}
-			responseMessage += "LIST|" + idList
-			//c.Write([]byte(string(message)))
-		}
-		if messageType == "RELAY" {
-			fmt.Printf("%q", strings.Split(string(netData), "|"))
-
-			receiverClientIds := strings.Split(string(messageFields[1]), ",")
-			message2send := messageFields[2]
-
-			for _, id := range receiverClientIds {
-				fmt.Println("***:")
-				fmt.Println(id)
-				i, err := strconv.Atoi(id)
-				if err != nil {
-					// handle error
-					fmt.Println(err)
-					responseMessage += "non integer client id"
-				} else {
-					if connectionInfo, ok := clientsMap[i]; ok {
-						fmt.Println("HH")
-						fmt.Println(connectionInfo)
-						fmt.Println(clientsMap[i])
-						fmt.Println("HH")
-						go sendMessage(connectionInfo, message2send)
-					} else {
-						fmt.Println("client id not found")
-						responseMessage += "client id not found"
+		// message format control
+		if len(netData) < 5 {
+			responseMessage = "Invalid Message Type"
+		} else {
+			messageType := netData[0:4]
+			index += 4
+			switch messageType {
+			case "IDME":
+				responseMessage = "IDME" + strconv.Itoa(clientId)
+			case "LIST":
+				var idList = ""
+				for id := range clientsMap {
+					if id == clientId {
+						continue
 					}
-
+					idList += strconv.Itoa(id) + ","
+				}
+				if idList != "" {
+					//remove last ","
+					idList = idList[:len(idList)-1]
+					responseMessage = "LIST" + idList
+				} else {
+					responseMessage = "No other clients!.."
 				}
 
+			//RELAY MESSAGE FORMAT
+			//4 byte message type : RLAY
+			//comma seperated receiver client ids
+			//message header : MSG
+			//message text
+			case "RLAY":
+
+				messageIndex := strings.Index(netData, "MSG")
+				message2send := netData[messageIndex+3:]
+				receiverClientIds := strings.Split(string(netData[index:messageIndex]), ",")
+				fmt.Println(message2send)
+				responseMessage = ""
+				unFoundIds := ""
+
+				for _, id := range receiverClientIds {
+					i, err := strconv.Atoi(id)
+					if err != nil {
+						fmt.Println(err)
+						//responseMessage = "non integer client id"
+					} else {
+						if connectionInfo, ok := clientsMap[i]; ok {
+							go sendMessage(connectionInfo, message2send)
+						} else {
+							fmt.Printf("client id not found: %s\n", id)
+							unFoundIds += id + " "
+						}
+
+					}
+				}
+				if len(unFoundIds) > 1 {
+					responseMessage = "Message Relay Triggered! except clients: " + unFoundIds
+
+				} else {
+					responseMessage += "Message Relay Triggered"
+				}
+
+			case "STOP":
+				delete(clientsMap, clientId)
+				c.Close()
+				return
+			default:
+				responseMessage = "Invalid Message Type"
 			}
-			responseMessage += "RELAY|"
-			//c.Write([]byte(string(message)))
+
 		}
+
+		// fmt.Println(len(netData))
+		// fmt.Println(len(incomingMessage))
+		// messageFields := strings.Split(string(netData), "|")
+		// messageType := messageFields[0]
+		// fmt.Println("MESSGAE TYPE:" + messageType)
+		// if messageType == "STOP" {
+		// 	delete(clientsMap, clientId)
+		// 	break
+		// }
+		// responseMessage := "RESPONSE|"
+		// if messageType == "ID" {
+		// 	responseMessage += "ID " + strconv.Itoa(clientId)
+		// }
+		// if messageType == "LIST" {
+		// 	var idList = ""
+		// 	for id := range clientsMap {
+		// 		if id == clientId {
+		// 			continue
+		// 		}
+		// 		idList += strconv.Itoa(id) + "|"
+		// 	}
+		// 	responseMessage += "LIST|" + idList
+		// }
+		// if messageType == "RELAY" {
+		// 	fmt.Printf("%q", strings.Split(string(netData), "|"))
+
+		// 	receiverClientIds := strings.Split(string(messageFields[1]), ",")
+		// 	message2send := messageFields[2]
+
+		// 	for _, id := range receiverClientIds {
+		// 		fmt.Println("***:")
+		// 		fmt.Println(id)
+		// 		i, err := strconv.Atoi(id)
+		// 		if err != nil {
+		// 			// handle error
+		// 			fmt.Println(err)
+		// 			responseMessage += "non integer client id"
+		// 		} else {
+		// 			if connectionInfo, ok := clientsMap[i]; ok {
+		// 				fmt.Println("HH")
+		// 				fmt.Println(connectionInfo)
+		// 				fmt.Println(clientsMap[i])
+		// 				fmt.Println("HH")
+		// 				go sendMessage(connectionInfo, message2send)
+		// 			} else {
+		// 				fmt.Println("client id not found")
+		// 				responseMessage += "client id not found"
+		// 			}
+
+		// 		}
+
+		// 	}
+
+		// }
 
 		responseMessage += "\n"
 		c.Write([]byte(string(responseMessage)))
-		//fmt.Println(messageType)
-		//counter := strconv.Itoa(count) + "\n"
-		//c.Write([]byte(string(counter)))
 	}
 	c.Close()
 }
