@@ -24,7 +24,7 @@ func sendMessage(c net.Conn, message string) {
 //STOP : end connection
 func handleConnection(c net.Conn) {
 	clientId := count
-	fmt.Print(".")
+	fmt.Println("new client connected d: ", clientId)
 	for {
 		netData, err := bufio.NewReader(c).ReadString('\n')
 		if err != nil {
@@ -108,61 +108,6 @@ func handleConnection(c net.Conn) {
 
 		}
 
-		// fmt.Println(len(netData))
-		// fmt.Println(len(incomingMessage))
-		// messageFields := strings.Split(string(netData), "|")
-		// messageType := messageFields[0]
-		// fmt.Println("MESSGAE TYPE:" + messageType)
-		// if messageType == "STOP" {
-		// 	delete(clientsMap, clientId)
-		// 	break
-		// }
-		// responseMessage := "RESPONSE|"
-		// if messageType == "ID" {
-		// 	responseMessage += "ID " + strconv.Itoa(clientId)
-		// }
-		// if messageType == "LIST" {
-		// 	var idList = ""
-		// 	for id := range clientsMap {
-		// 		if id == clientId {
-		// 			continue
-		// 		}
-		// 		idList += strconv.Itoa(id) + "|"
-		// 	}
-		// 	responseMessage += "LIST|" + idList
-		// }
-		// if messageType == "RELAY" {
-		// 	fmt.Printf("%q", strings.Split(string(netData), "|"))
-
-		// 	receiverClientIds := strings.Split(string(messageFields[1]), ",")
-		// 	message2send := messageFields[2]
-
-		// 	for _, id := range receiverClientIds {
-		// 		fmt.Println("***:")
-		// 		fmt.Println(id)
-		// 		i, err := strconv.Atoi(id)
-		// 		if err != nil {
-		// 			// handle error
-		// 			fmt.Println(err)
-		// 			responseMessage += "non integer client id"
-		// 		} else {
-		// 			if connectionInfo, ok := clientsMap[i]; ok {
-		// 				fmt.Println("HH")
-		// 				fmt.Println(connectionInfo)
-		// 				fmt.Println(clientsMap[i])
-		// 				fmt.Println("HH")
-		// 				go sendMessage(connectionInfo, message2send)
-		// 			} else {
-		// 				fmt.Println("client id not found")
-		// 				responseMessage += "client id not found"
-		// 			}
-
-		// 		}
-
-		// 	}
-
-		// }
-
 		responseMessage += "\n"
 		c.Write([]byte(string(responseMessage)))
 	}
@@ -195,7 +140,7 @@ func main() {
 		count++
 		clientsMap[count] = c
 		go handleConnection(c)
-		fmt.Println("connectionInfo:", clientsMap)
+		//fmt.Println("connectionInfo:", clientsMa)
 
 	}
 }

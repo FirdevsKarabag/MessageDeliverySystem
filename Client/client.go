@@ -19,6 +19,8 @@ func listener(c net.Conn) {
 			return
 		}
 		if len(message) > 4 {
+			//message received
+			fmt.Printf("Message received on client:%v\n", c)
 			messageType := message[0:4]
 			switch messageType {
 			case "IDME":
@@ -79,12 +81,12 @@ func msgRLAY(c net.Conn, message string) {
 	}
 	receiverClientIds := strings.Split(string(message[4:msgIndex]), ",")
 	//fmt.Println(len(receiverClientIds))
-	if len(message[msgIndex:]) > 1000 {
+	if len(message[msgIndex+3:]) > 1024 {
 		fmt.Println("max message size should be 1024 kilobytes!")
 		return
 	}
 	if len(receiverClientIds) > 255 {
-		fmt.Println("max client count should be 255!")
+		fmt.Println("max messgae receiver client count should be 255!")
 		return
 	}
 
@@ -96,6 +98,17 @@ func msgSTOP(c net.Conn) {
 	fmt.Fprintf(c, "STOP\n")
 }
 
+func connectHub(CONNECT string) (net.Conn, error) {
+
+	c, err := net.Dial("tcp", CONNECT)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return c, nil
+}
+
 func main() {
 	arguments := os.Args
 	if len(arguments) == 1 {
@@ -104,7 +117,8 @@ func main() {
 	}
 
 	CONNECT := arguments[1]
-	c, err := net.Dial("tcp", CONNECT)
+	//c, err := net.Dial("tcp", CONNECT)
+	c, err := connectHub(CONNECT)
 	if err != nil {
 		fmt.Println(err)
 		return
